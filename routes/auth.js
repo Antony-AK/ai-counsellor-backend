@@ -4,6 +4,10 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
 import { recalcUniversities } from "../service/universityEngine.js";
+import { OAuth2Client } from "google-auth-library";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const router = express.Router();
 
@@ -194,7 +198,46 @@ router.post("/tasks/toggle", protect, async (req, res) => {
   res.json({ success: true, completed: task.completed });
 });
 
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+router.post("/google", async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    // 1️⃣ Verify Google token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, picture } = payload;
+
+    // 2️⃣ Find or create user
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      user = await User.create({
+        name,
+        email,
+        avatar: picture,
+        provider: "google",
+        onboardingCompleted: false
+      });
+    }
+
+    // 3️⃣ Issue SAME JWT as normal login
+    const jwtToken = createToken(user._id);
+
+    res.json({
+      token: jwtToken,
+      user
+    });
+  } catch (err) {
+    console.error("❌ Google auth failed", err);
+    res.status(401).json({ msg: "Google authentication failed" });
+  }
+});
 
 
 
