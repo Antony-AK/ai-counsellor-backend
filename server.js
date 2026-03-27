@@ -27,7 +27,7 @@ app.use("/ai", aiRoutes);
 
 
 // Health check
-app.get("/", (req, res) => {
+app.get("/health", (req, res) => {
   res.send("AI Counsellor API is running 🚀");
 });
 
